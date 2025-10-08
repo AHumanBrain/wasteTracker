@@ -161,4 +161,45 @@
                     legend: { labels: { color: '#e0e0e0' } }
                 },
                 scales: {
-                    x: { ticks: { color: '#e0e0e0' }, grid: { color: '
+                    x: { ticks: { color: '#e0e0e0' }, grid: { color: '#333' } },
+                    y: { ticks: { color: '#e0e0e0' }, grid: { color: '#333' } }
+                }
+            };
+
+            // Stream bar chart
+            const ctxStream = document.getElementById('streamChart').getContext('2d');
+            new Chart(ctxStream, {
+                type: 'bar',
+                data: {
+                    labels: streamLabels,
+                    datasets: [{
+                        label: 'Quantity (kg)',
+                        data: streamData,
+                        backgroundColor: '#bb86fc'
+                    }]
+                },
+                options: commonOptions
+            });
+
+            // Business pie chart
+            const ctxBusiness = document.getElementById('businessChart').getContext('2d');
+            new Chart(ctxBusiness, {
+                type: 'pie',
+                data: {
+                    labels: businessLabels,
+                    datasets: [{
+                        data: businessData,
+                        backgroundColor: ['#bb86fc', '#03dac6', '#cf6679', '#ffb86c']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: '#e0e0e0' } } }
+                }
+            });
+        })();
+    </script>
+</main>
+<footer>&copy; {{ default_date[:4] }} Waste Tracker</footer>
+</body>
+</html>
