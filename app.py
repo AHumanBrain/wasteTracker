@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, Response
 import sqlite3
 from datetime import datetime
 
@@ -26,6 +26,11 @@ def index():
                 quantity REAL
             )
         """)
+        # Insert the new entry
+        c.execute(
+            "INSERT INTO waste (date, business, stream, quantity) VALUES (?, ?, ?, ?)",
+            (date, business, stream, quantity)
+        )
         conn.commit()
         conn.close()
         return redirect(url_for("index"))
@@ -56,7 +61,7 @@ def index():
 
     # Dropdown options
     businesses = ["DAB", "CTI"]  # populate as needed
-    streams = ["ACN", "DCM"]        # populate as needed
+    streams = ["ACN", "DCM"]     # populate as needed
 
     # Default date for form and footer
     default_date = datetime.today().strftime("%Y-%m-%d")
@@ -72,7 +77,7 @@ def index():
         default_date=default_date
     )
 
-# CSV export route (optional, kept for completeness)
+# CSV export route
 @app.route("/export")
 def export_csv():
     conn = sqlite3.connect(DB)
@@ -84,7 +89,6 @@ def export_csv():
     csv_content = "Date,Business,Stream,Quantity\n"
     csv_content += "\n".join([f"{r[0]},{r[1]},{r[2]},{r[3]}" for r in rows])
 
-    from flask import Response
     return Response(
         csv_content,
         mimetype="text/csv",
