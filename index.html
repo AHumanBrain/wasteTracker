@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+  <title>Chemical Waste Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    .warning { color: red; font-weight: bold; }
+    form { margin-bottom: 2em; }
+    table, th, td { border: 1px solid #ccc; border-collapse: collapse; padding: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Chemical Waste Tracker</h1>
+
+  <form method="post">
+    <label>Date: <input type="date" name="date"></label>
+    <label>Business:
+      <select name="business">
+        <option>Business A</option>
+        <option>Business B</option>
+      </select>
+    </label>
+    <label>Stream: <input name="stream"></label>
+    <label>Quantity (kg): <input type="number" step="0.01" name="quantity" required></label>
+    <label>Notes: <input name="notes"></label>
+    <button type="submit">Add Entry</button>
+  </form>
+
+  <h2>This Month</h2>
+  <progress value="{{ total }}" max="{{ limit }}" style="width:400px; height:30px;"></progress>
+  <p>{{ total }} / {{ limit }} kg {% if warn %}<span class="warning">⚠ Nearing capacity!</span>{% endif %}</p>
+
+  <h3>Breakdown by Business</h3>
+  <canvas id="businessChart"></canvas>
+
+  <h3>Breakdown by Stream</h3>
+  <canvas id="streamChart"></canvas>
+
+  <h3>Trend Over Time</h3>
+  <canvas id="trendChart"></canvas>
+
+  <h3>Recent Entries</h3>
+  <table>
+    <tr><th>Date</th><th>Business</th><th>Stream</th><th>Quantity (kg)</th><th>Notes</th></tr>
+    {% for row in recent_entries %}
+      <tr>
+        <td>{{ row[0] }}</td>
+        <td>{{ row[1] }}</td>
+        <td>{{ row[2] }}</td>
+        <td>{{ row[3] }}</td>
+        <td>{{ row[4] }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+
+  <p><a href="/export">📥 Export CSV</a></p>
+
+  <script>
+    // Business Chart
+    new Chart(document.getElementById("businessChart"), {
+      type: "bar",
+      data: {
+        labels: {{ business_totals.keys()|list|tojson }},
+        datasets: [{ label: "Waste (kg)", data: {{ business_totals.values()|list|tojson }},
+                    backgroundColor: ["#4e79a7","#f28e2b"] }]
+      }
+    });
+
+    // Stream Chart
+    new Chart(document.getElementById("streamChart"), {
+      type: "pie",
+      data: {
+        labels: {{ stream_totals.keys()|list|tojson }},
+        datasets: [{ data: {{ stream_totals.values()|list|tojson }},
+                     backgroundColor: ["#59a14f","#e15759","#76b7b2","#edc949","#af7aa1"] }]
+      }
+    });
+
+    // Trend Chart
+    new Chart(document.getElementById("trendChart"), {
+      type: "line",
+      data: {
+        labels: {{ trend|map(attribute=0)|list|tojson }},
+        datasets: [{ label: "Cumulative (kg)",
+                     data: {{ trend|map(attribute=1)|list|tojson }},
+                     fill:false, borderColor:"#4e79a7", tension:0.1 }]
+      }
+    });
+  </script>
+</body>
+</html>
