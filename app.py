@@ -7,9 +7,16 @@ DB = "waste.db"  # adjust path if needed
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    # Dropdown options
+    businesses = ["DAB", "CTI"]  # populate as needed
+    streams = ["ACN", "DCM"]     # populate as needed
+
+    # Default date for form and footer
+    default_date = datetime.today().strftime("%Y-%m-%d")
+
     if request.method == "POST":
-        # Example form data
-        date = request.form.get("date", datetime.today().strftime("%Y-%m-%d"))
+        # Get form data
+        date = request.form.get("date", default_date)
         business = request.form["business"]
         stream = request.form["stream"]
         quantity = float(request.form["quantity"])
@@ -26,7 +33,7 @@ def index():
                 quantity REAL
             )
         """)
-        # Insert the new entry
+        # Insert the submitted data
         c.execute(
             "INSERT INTO waste (date, business, stream, quantity) VALUES (?, ?, ?, ?)",
             (date, business, stream, quantity)
@@ -58,13 +65,6 @@ def index():
         stream_totals[row[1]] += row[2]
 
     conn.close()
-
-    # Dropdown options
-    businesses = ["DAB", "CTI"]  # populate as needed
-    streams = ["ACN", "DCM"]     # populate as needed
-
-    # Default date for form and footer
-    default_date = datetime.today().strftime("%Y-%m-%d")
 
     return render_template(
         "index.html",
