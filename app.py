@@ -16,10 +16,16 @@ def index():
 
         conn = sqlite3.connect(DB)
         c = conn.cursor()
-        c.execute(
-            "INSERT INTO waste (date, business, stream, quantity) VALUES (?, ?, ?, ?)",
-            (date, business, stream, quantity)
-        )
+        # Create the table if it doesn't exist
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS waste (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT,
+                business TEXT,
+                stream TEXT,
+                quantity REAL
+            )
+        """)
         conn.commit()
         conn.close()
         return redirect(url_for("index"))
