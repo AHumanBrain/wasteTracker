@@ -5,35 +5,34 @@ from datetime import datetime
 app = Flask(__name__)
 DB = "waste.db"  # adjust path if needed
 
+# Ensure the table exists at app startup
+def init_db():
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS waste (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            business TEXT,
+            stream TEXT,
+            quantity REAL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
 @app.route("/", methods=["GET", "POST"])
 def index():
-    # Dropdown options
-    businesses = ["DAB", "CTI"]  # populate as needed
-    streams = ["ACN", "DCM"]     # populate as needed
-
-    # Default date for form and footer
-    default_date = datetime.today().strftime("%Y-%m-%d")
-
     if request.method == "POST":
-        # Get form data
-        date = request.form.get("date", default_date)
+        date = request.form.get("date", datetime.today().strftime("%Y-%m-%d"))
         business = request.form["business"]
         stream = request.form["stream"]
         quantity = float(request.form["quantity"])
 
         conn = sqlite3.connect(DB)
         c = conn.cursor()
-        # Create the table if it doesn't exist
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS waste (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date TEXT,
-                business TEXT,
-                stream TEXT,
-                quantity REAL
-            )
-        """)
-        # Insert the submitted data
         c.execute(
             "INSERT INTO waste (date, business, stream, quantity) VALUES (?, ?, ?, ?)",
             (date, business, stream, quantity)
@@ -65,6 +64,13 @@ def index():
         stream_totals[row[1]] += row[2]
 
     conn.close()
+
+    # Dropdown options
+    businesses = ["DAB", "CTI"]
+    streams = ["ACN", "DCM"]
+
+    # Default date for form and footer
+    default_date = datetime.today().strftime("%Y-%m-%d")
 
     return render_template(
         "index.html",
