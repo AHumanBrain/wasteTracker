@@ -82,6 +82,9 @@ def index():
         stream_totals[row[1]] += row[2]
 
     default_date = datetime.today().strftime("%Y-%m-%d")
+
+    businesses = ["Arbor", "Chiral"]
+    streams = ["ACN","DCM"]
     
     # Step 5: render template
     return render_template(
