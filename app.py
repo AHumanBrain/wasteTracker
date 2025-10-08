@@ -1,23 +1,18 @@
 import os
-DB = os.environ.get("DB_PATH", os.path.join(os.getcwd(), "waste.db"))
-# then use DB wherever you previously used "waste.db"
-
-from flask import Flask, render_template, request, redirect, send_file
-import sqlite3, datetime, csv, os
-from io import StringIO
-
-app = Flask(__name__)
-
-DB = "waste.db"
-MONTHLY_LIMIT = 1000
-
 import sqlite3
-import os
+from flask import Flask, render_template, request, redirect, url_for, send_file
+import pandas as pd
+from datetime import datetime
 
-# Ensure directory exists for DB
+# -----------------------------
+# DATABASE SETUP
+# -----------------------------
+DB = os.environ.get("DB_PATH", os.path.join(os.getcwd(), "waste.db"))
+
+# Ensure directory exists
 os.makedirs(os.path.dirname(DB), exist_ok=True)
 
-# Create the table if it doesn't exist
+# Create table if it doesn't exist
 conn = sqlite3.connect(DB)
 c = conn.cursor()
 c.execute("""
@@ -25,103 +20,79 @@ CREATE TABLE IF NOT EXISTS waste (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date TEXT NOT NULL,
     business TEXT NOT NULL,
+    stream TEXT NOT NULL,
     quantity REAL NOT NULL
 )
 """)
 conn.commit()
 conn.close()
 
-
 def init_db():
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS waste
-                 (id INTEGER PRIMARY KEY,
-                  date TEXT,
-                  business TEXT,
-                  stream TEXT,
-                  quantity REAL,
-                  notes TEXT)''')
-    conn.commit()
-    conn.close()
+    # Optional: additional initialization logic
+    pass
 
+# -----------------------------
+# FLASK APP SETUP
+# -----------------------------
+app = Flask(__name__)
 
-def get_month_key():
-    return datetime.date.today().strftime("%Y-%m")
-
-
+# -----------------------------
+# ROUTES
+# -----------------------------
 @app.route("/", methods=["GET", "POST"])
 def index():
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-
-    # Insert new entry
     if request.method == "POST":
-        date = request.form["date"] or datetime.date.today().isoformat()
+        # Example form data
+        date = request.form.get("date", datetime.today().strftime("%Y-%m-%d"))
         business = request.form["business"]
         stream = request.form["stream"]
-        qty = float(request.form["quantity"])
-        notes = request.form.get("notes", "")
-        c.execute("INSERT INTO waste (date, business, stream, quantity, notes) VALUES (?, ?, ?, ?, ?)",
-                  (date, business, stream, qty, notes))
+        quantity = float(request.form["quantity"])
+
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO waste (date, business, stream, quantity) VALUES (?, ?, ?, ?)",
+            (date, business, stream, quantity)
+        )
         conn.commit()
+        conn.close()
+        return redirect(url_for("index"))
 
-    # Fetch current month's totals
-    month = get_month_key()
-    c.execute("SELECT business, SUM(quantity) FROM waste WHERE date LIKE ? GROUP BY business", (f"{month}%",))
-    business_totals = dict(c.fetchall())
-
-    c.execute("SELECT stream, SUM(quantity) FROM waste WHERE date LIKE ? GROUP BY stream", (f"{month}%",))
-    stream_totals = dict(c.fetchall())
-
-    c.execute("SELECT date, SUM(quantity) FROM waste WHERE date LIKE ? GROUP BY date ORDER BY date", (f"{month}%",))
-    trend = c.fetchall()
-
-    c.execute("SELECT SUM(quantity) FROM waste WHERE date LIKE ?", (f"{month}%",))
-    total = c.fetchone()[0] or 0
-
-    # Fetch latest 10 entries
-    c.execute("SELECT date, business, stream, quantity, notes FROM waste WHERE date LIKE ? ORDER BY id DESC LIMIT 10",
-              (f"{month}%",))
-    recent_entries = c.fetchall()
-
-    conn.close()
-
-    warn = total > 0.8 * MONTHLY_LIMIT
-
-    return render_template("index.html",
-                           total=total,
-                           business_totals=business_totals,
-                           stream_totals=stream_totals,
-                           trend=trend,
-                           recent_entries=recent_entries,
-                           limit=MONTHLY_LIMIT,
-                           warn=warn)
-
-
-@app.route("/export")
-def export_csv():
-    month = get_month_key()
+    # Display monthly summary
+    month = datetime.today().strftime("%Y-%m")
     conn = sqlite3.connect(DB)
     c = conn.cursor()
-    c.execute("SELECT date, business, stream, quantity, notes FROM waste WHERE date LIKE ? ORDER BY date", (f"{month}%",))
-    rows = c.fetchall()
+    c.execute("""
+        SELECT business, stream, SUM(quantity) 
+        FROM waste 
+        WHERE date LIKE ? 
+        GROUP BY business, stream
+    """, (f"{month}%",))
+    summary = c.fetchall()
     conn.close()
 
-    si = StringIO()
-    cw = csv.writer(si)
-    cw.writerow(["Date", "Business", "Stream", "Quantity (kg)", "Notes"])
-    cw.writerows(rows)
-    output = si.getvalue()
+    # Compute total and by-business totals
+    total = sum(row[2] for row in summary)
+    business_totals = {}
+    for row in summary:
+        business_totals.setdefault(row[0], 0)
+        business_totals[row[0]] += row[2]
 
-    return send_file(
-        StringIO(output),
-        mimetype="text/csv",
-        as_attachment=True,
-        download_name=f"waste_{month}.csv"
-    )
+    return render_template("index.html", summary=summary, total=total, business_totals=business_totals)
 
+# -----------------------------
+# CSV EXPORT ROUTE
+# -----------------------------
+@app.route("/export")
+def export_csv():
+    conn = sqlite3.connect(DB)
+    df = pd.read_sql_query("SELECT * FROM waste", conn)
+    conn.close()
+    df.to_csv("waste_backup.csv", index=False)
+    return send_file("waste_backup.csv", as_attachment=True)
 
+# -----------------------------
+# RUN APP
+# -----------------------------
 if __name__ == "__main__":
-    init_db()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
