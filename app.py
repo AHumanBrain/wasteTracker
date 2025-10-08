@@ -1,3 +1,7 @@
+import os
+DB = os.environ.get("DB_PATH", os.path.join(os.getcwd(), "waste.db"))
+# then use DB wherever you previously used "waste.db"
+
 from flask import Flask, render_template, request, redirect, send_file
 import sqlite3, datetime, csv, os
 from io import StringIO
