@@ -40,26 +40,15 @@ app = Flask(__name__)
 # ROUTES
 # -----------------------------
 
+from datetime import datetime
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        # Handle form submission
-        date = request.form.get("date", datetime.today().strftime("%Y-%m-%d"))
-        business = request.form["business"]
-        stream = request.form["stream"]
-        quantity = float(request.form["quantity"])
+        # handle form submission...
+        ...
 
-        conn = sqlite3.connect(DB)
-        c = conn.cursor()
-        c.execute(
-            "INSERT INTO waste (date, business, stream, quantity) VALUES (?, ?, ?, ?)",
-            (date, business, stream, quantity)
-        )
-        conn.commit()
-        conn.close()
-        return redirect(url_for("index"))
-
-    # Display monthly summary (GET request)
+    # Display monthly summary
     month = datetime.today().strftime("%Y-%m")
     conn = sqlite3.connect(DB)
     c = conn.cursor()
@@ -70,27 +59,37 @@ def index():
         GROUP BY business, stream
     """, (f"{month}%",))
     summary = c.fetchall()
+    conn.close()
 
-    # Compute total and by-business totals
+    # Compute totals
     total = sum(row[2] for row in summary)
     business_totals = {}
-    stream_totals = {}
     for row in summary:
         business_totals.setdefault(row[0], 0)
         business_totals[row[0]] += row[2]
 
+    # Example: compute stream totals
+    stream_totals = {}
+    for row in summary:
         stream_totals.setdefault(row[1], 0)
         stream_totals[row[1]] += row[2]
 
-    conn.close()
+    # Prepare business and stream lists for the select options
+    business_list = sorted(set(row[0] for row in summary))
+    stream_list = sorted(set(row[1] for row in summary))
 
-    # Render template with all required variables
+    # Pass the default date to the template
+    default_date = datetime.today().strftime("%Y-%m-%d")
+
     return render_template(
         "index.html",
         summary=summary,
         total=total,
         business_totals=business_totals,
-        stream_totals=stream_totals
+        stream_totals=stream_totals,
+        business_list=business_list,
+        stream_list=stream_list,
+        default_date=default_date  # <- pass it here
     )
 
 
