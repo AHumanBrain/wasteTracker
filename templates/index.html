@@ -1,92 +1,116 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <title>Chemical Waste Tracker</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: sans-serif; margin: 2em; }
-    .warning { color: red; font-weight: bold; }
-    form { margin-bottom: 2em; }
-    table, th, td { border: 1px solid #ccc; border-collapse: collapse; padding: 5px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Waste Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #ffffff;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        th, td {
+            border: 1px solid #333;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #1f1f1f;
+        }
+        tr:nth-child(even) {
+            background-color: #1a1a1a;
+        }
+        input, select, button {
+            background-color: #1f1f1f;
+            color: #e0e0e0;
+            border: 1px solid #333;
+            padding: 5px 10px;
+            margin: 5px 0;
+        }
+        button {
+            cursor: pointer;
+        }
+        canvas {
+            background-color: #1f1f1f;
+            border-radius: 8px;
+            padding: 10px;
+        }
+    </style>
 </head>
 <body>
-  <h1>Chemical Waste Tracker</h1>
+    <h1>Waste Tracker</h1>
 
-  <form method="post">
-    <label>Date: <input type="date" name="date"></label>
-    <label>Business:
-      <select name="business">
-        <option>Business A</option>
-        <option>Business B</option>
-      </select>
-    </label>
-    <label>Stream: <input name="stream"></label>
-    <label>Quantity (kg): <input type="number" step="0.01" name="quantity" required></label>
-    <label>Notes: <input name="notes"></label>
-    <button type="submit">Add Entry</button>
-  </form>
+    <!-- Example summary table -->
+    <table>
+        <thead>
+            <tr>
+                <th>Business</th>
+                <th>Stream</th>
+                <th>Quantity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in summary %}
+            <tr>
+                <td>{{ row[0] }}</td>
+                <td>{{ row[1] }}</td>
+                <td>{{ row[2] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
-  <h2>This Month</h2>
-  <progress value="{{ total }}" max="{{ limit }}" style="width:400px; height:30px;"></progress>
-  <p>{{ total }} / {{ limit }} kg {% if warn %}<span class="warning">⚠ Nearing capacity!</span>{% endif %}</p>
+    <h2>Monthly Totals: {{ total }}</h2>
 
-  <h3>Breakdown by Business</h3>
-  <canvas id="businessChart"></canvas>
-
-  <h3>Breakdown by Stream</h3>
-  <canvas id="streamChart"></canvas>
-
-  <h3>Trend Over Time</h3>
-  <canvas id="trendChart"></canvas>
-
-  <h3>Recent Entries</h3>
-  <table>
-    <tr><th>Date</th><th>Business</th><th>Stream</th><th>Quantity (kg)</th><th>Notes</th></tr>
-    {% for row in recent_entries %}
-      <tr>
-        <td>{{ row[0] }}</td>
-        <td>{{ row[1] }}</td>
-        <td>{{ row[2] }}</td>
-        <td>{{ row[3] }}</td>
-        <td>{{ row[4] }}</td>
-      </tr>
-    {% endfor %}
-  </table>
-
-  <p><a href="/export">📥 Export CSV</a></p>
-
-  <script>
-    // Business Chart
-    new Chart(document.getElementById("businessChart"), {
-      type: "bar",
-      data: {
-        labels: {{ business_totals.keys()|list|tojson }},
-        datasets: [{ label: "Waste (kg)", data: {{ business_totals.values()|list|tojson }},
-                    backgroundColor: ["#4e79a7","#f28e2b"] }]
-      }
+    <!-- Chart.js chart -->
+    <canvas id="wasteChart" width="400" height="200"></canvas>
+    <script>
+    const ctx = document.getElementById('wasteChart').getContext('2d');
+    const wasteChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: {{ stream_totals.keys()|list|tojson }},
+            datasets: [{
+                label: 'Waste Quantity',
+                data: {{ stream_totals.values()|list|tojson }},
+                backgroundColor: 'rgba(0, 200, 255, 0.8)',
+                borderColor: 'rgba(0, 200, 255, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#e0e0e0' // legend text
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#e0e0e0' },
+                    grid: { color: '#333' }
+                },
+                y: {
+                    ticks: { color: '#e0e0e0' },
+                    grid: { color: '#333' },
+                    beginAtZero: true
+                }
+            }
+        }
     });
-
-    // Stream Chart
-    new Chart(document.getElementById("streamChart"), {
-      type: "pie",
-      data: {
-        labels: {{ stream_totals.keys()|list|tojson }},
-        datasets: [{ data: {{ stream_totals.values()|list|tojson }},
-                     backgroundColor: ["#59a14f","#e15759","#76b7b2","#edc949","#af7aa1"] }]
-      }
-    });
-
-    // Trend Chart
-    new Chart(document.getElementById("trendChart"), {
-      type: "line",
-      data: {
-        labels: {{ trend|map(attribute=0)|list|tojson }},
-        datasets: [{ label: "Cumulative (kg)",
-                     data: {{ trend|map(attribute=1)|list|tojson }},
-                     fill:false, borderColor:"#4e79a7", tension:0.1 }]
-      }
-    });
-  </script>
+    </script>
 </body>
 </html>
