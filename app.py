@@ -10,6 +10,27 @@ import csv
 app = Flask(__name__)
 DB = "waste.db"
 
+# After app = Flask(__name__) and DB = "waste.db"
+
+def init_db():
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    # Create the table if it doesn't exist
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS waste (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            business TEXT NOT NULL,
+            stream TEXT NOT NULL,
+            quantity REAL NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# Initialize the DB when the app starts
+init_db()
+
 # ROUTES
 @app.route("/", methods=["GET", "POST"])
 def index():
