@@ -81,6 +81,8 @@ def index():
         stream_totals.setdefault(row[1], 0)
         stream_totals[row[1]] += row[2]
 
+    default_date = datetime.today().strftime("%Y-%m-%d")
+    
     # Step 5: render template
     return render_template(
         "index.html",
@@ -88,6 +90,7 @@ def index():
         total=total,
         business_totals=business_totals,
         stream_totals=stream_totals,
+        default_date=default_date,
         businesses=businesses,
         streams=streams,
         today=datetime.today().strftime("%Y-%m-%d")  # for default date input
