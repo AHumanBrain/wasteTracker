@@ -43,9 +43,23 @@ app = Flask(__name__)
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        # ... POST handling ...
+        # Handle form submission
+        date = request.form.get("date", datetime.today().strftime("%Y-%m-%d"))
+        business = request.form["business"]
+        stream = request.form["stream"]
+        quantity = float(request.form["quantity"])
 
-    # Display monthly summary
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO waste (date, business, stream, quantity) VALUES (?, ?, ?, ?)",
+            (date, business, stream, quantity)
+        )
+        conn.commit()
+        conn.close()
+        return redirect(url_for("index"))
+
+    # Display monthly summary (GET request)
     month = datetime.today().strftime("%Y-%m")
     conn = sqlite3.connect(DB)
     c = conn.cursor()
@@ -56,22 +70,21 @@ def index():
         GROUP BY business, stream
     """, (f"{month}%",))
     summary = c.fetchall()
-    conn.close()
 
     # Compute total and by-business totals
     total = sum(row[2] for row in summary)
     business_totals = {}
+    stream_totals = {}
     for row in summary:
         business_totals.setdefault(row[0], 0)
         business_totals[row[0]] += row[2]
 
-    # Step 1: compute totals by stream
-    stream_totals = {}
-    for row in summary:
         stream_totals.setdefault(row[1], 0)
         stream_totals[row[1]] += row[2]
 
-    # Step 2: pass everything to template
+    conn.close()
+
+    # Render template with all required variables
     return render_template(
         "index.html",
         summary=summary,
