@@ -1,54 +1,36 @@
-import os
-import sqlite3
+# app.py
+# Lines 1-10: imports
 from flask import Flask, render_template, request, redirect, url_for, send_file
-import pandas as pd
+import sqlite3
 from datetime import datetime
+from io import StringIO
+import csv
 
-# -----------------------------
-# DATABASE SETUP
-# -----------------------------
-DB = os.environ.get("DB_PATH", os.path.join(os.getcwd(), "waste.db"))
-
-# Ensure directory exists
-os.makedirs(os.path.dirname(DB), exist_ok=True)
-
-# Create table if it doesn't exist
-conn = sqlite3.connect(DB)
-c = conn.cursor()
-c.execute("""
-CREATE TABLE IF NOT EXISTS waste (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT NOT NULL,
-    business TEXT NOT NULL,
-    stream TEXT NOT NULL,
-    quantity REAL NOT NULL
-)
-""")
-conn.commit()
-conn.close()
-
-def init_db():
-    # Optional: additional initialization logic
-    pass
-
-# -----------------------------
-# FLASK APP SETUP
-# -----------------------------
+# Line 12: app setup
 app = Flask(__name__)
+DB = "waste.db"
 
-# -----------------------------
 # ROUTES
-# -----------------------------
-
-from datetime import datetime
-
 @app.route("/", methods=["GET", "POST"])
 def index():
+    # Step 1: handle POST
     if request.method == "POST":
-        # handle form submission...
-        ...
+        date = request.form.get("date", datetime.today().strftime("%Y-%m-%d"))
+        business = request.form["business"]
+        stream = request.form["stream"]
+        quantity = float(request.form["quantity"])
 
-    # Display monthly summary
+        conn = sqlite3.connect(DB)
+        c = conn.cursor()
+        c.execute(
+            "INSERT INTO waste (date, business, stream, quantity) VALUES (?, ?, ?, ?)",
+            (date, business, stream, quantity)
+        )
+        conn.commit()
+        conn.close()
+        return redirect(url_for("index"))
+
+    # Step 2: compute summary for current month
     month = datetime.today().strftime("%Y-%m")
     conn = sqlite3.connect(DB)
     c = conn.cursor()
@@ -59,53 +41,58 @@ def index():
         GROUP BY business, stream
     """, (f"{month}%",))
     summary = c.fetchall()
+
+    # Step 3: get dropdown options for business and stream
+    c.execute("SELECT DISTINCT business FROM waste")
+    businesses = [row[0] for row in c.fetchall()]
+    c.execute("SELECT DISTINCT stream FROM waste")
+    streams = [row[0] for row in c.fetchall()]
     conn.close()
 
-    # Compute totals
+    # Step 4: compute totals
     total = sum(row[2] for row in summary)
     business_totals = {}
+    stream_totals = {}
     for row in summary:
         business_totals.setdefault(row[0], 0)
         business_totals[row[0]] += row[2]
 
-    # Example: compute stream totals
-    stream_totals = {}
-    for row in summary:
         stream_totals.setdefault(row[1], 0)
         stream_totals[row[1]] += row[2]
 
-    # Prepare business and stream lists for the select options
-    business_list = sorted(set(row[0] for row in summary))
-    stream_list = sorted(set(row[1] for row in summary))
-
-    # Pass the default date to the template
-    default_date = datetime.today().strftime("%Y-%m-%d")
-
+    # Step 5: render template
     return render_template(
         "index.html",
         summary=summary,
         total=total,
         business_totals=business_totals,
         stream_totals=stream_totals,
-        business_list=business_list,
-        stream_list=stream_list,
-        default_date=default_date  # <- pass it here
+        businesses=businesses,
+        streams=streams,
+        today=datetime.today().strftime("%Y-%m-%d")  # for default date input
     )
 
-
-# -----------------------------
 # CSV EXPORT ROUTE
-# -----------------------------
-@app.route("/export")
+@app.route("/export_csv")
 def export_csv():
     conn = sqlite3.connect(DB)
-    df = pd.read_sql_query("SELECT * FROM waste", conn)
+    c = conn.cursor()
+    c.execute("SELECT date, business, stream, quantity FROM waste ORDER BY date")
+    rows = c.fetchall()
     conn.close()
-    df.to_csv("waste_backup.csv", index=False)
-    return send_file("waste_backup.csv", as_attachment=True)
 
-# -----------------------------
-# RUN APP
-# -----------------------------
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(["Date", "Business", "Stream", "Quantity"])
+    cw.writerows(rows)
+    si.seek(0)
+
+    return send_file(
+        si,
+        mimetype="text/csv",
+        download_name=f"waste_export_{datetime.today().strftime('%Y-%m-%d')}.csv",
+        as_attachment=True
+    )
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    app.run(host="0.0.0.0", port=8080)
