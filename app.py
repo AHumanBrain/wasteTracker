@@ -11,6 +11,26 @@ app = Flask(__name__)
 DB = "waste.db"
 MONTHLY_LIMIT = 1000
 
+import sqlite3
+import os
+
+# Ensure directory exists for DB
+os.makedirs(os.path.dirname(DB), exist_ok=True)
+
+# Create the table if it doesn't exist
+conn = sqlite3.connect(DB)
+c = conn.cursor()
+c.execute("""
+CREATE TABLE IF NOT EXISTS waste (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    business TEXT NOT NULL,
+    quantity REAL NOT NULL
+)
+""")
+conn.commit()
+conn.close()
+
 
 def init_db():
     conn = sqlite3.connect(DB)
