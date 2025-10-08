@@ -49,8 +49,8 @@ def index():
     conn.close()
 
     # Dropdown options
-    businesses = ["Business A", "Business B"]  # populate as needed
-    streams = ["Stream 1", "Stream 2"]        # populate as needed
+    businesses = ["DAB", "CTI"]  # populate as needed
+    streams = ["ACN", "DCM"]        # populate as needed
 
     # Default date for form and footer
     default_date = datetime.today().strftime("%Y-%m-%d")
