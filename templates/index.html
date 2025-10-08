@@ -73,14 +73,14 @@
             
             <label for="business">Business:</label>
             <select name="business" required>
-                {% for b in business_list %}
+                {% for b in businesses %}
                     <option value="{{ b }}">{{ b }}</option>
                 {% endfor %}
             </select>
 
             <label for="stream">Stream:</label>
             <select name="stream" required>
-                {% for s in stream_list %}
+                {% for s in streams %}
                     <option value="{{ s }}">{{ s }}</option>
                 {% endfor %}
             </select>
