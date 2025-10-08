@@ -5,29 +5,40 @@
     <title>Waste Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { background-color: #121212; color: #e0e0e0; font-family: Arial, sans-serif; margin:0; padding:0; }
-        header, footer { background-color:#1e1e1e; padding:1rem; text-align:center; }
-        main { padding:1rem 2rem; }
+        /* Dark theme */
+        :root {
+            --bg: #121212;
+            --panel: #1e1e1e;
+            --muted: #333;
+            --text: #e0e0e0;
+        }
+        body { background: var(--bg); color: var(--text); font-family: Arial, sans-serif; margin:0; padding:0; }
+        header, footer { background: var(--panel); padding: 1rem; text-align: center; }
+        main { padding: 1rem 2rem; }
         table { width:100%; border-collapse:collapse; margin-bottom:1.5rem; }
-        th, td { border:1px solid #333; padding:0.5rem; text-align:left; }
-        th { background-color:#333; }
-        input, select, button { padding:0.5rem; margin:0.25rem 0; background-color:#1e1e1e; color:#e0e0e0; border:1px solid #555; }
-        button { cursor:pointer; }
-        button:hover { background-color:#333; }
-        .summary { display:flex; flex-wrap:wrap; gap:2rem; margin-bottom:1.5rem; }
-        .summary div { background-color:#1e1e1e; padding:1rem; border-radius:8px; flex:1; min-width:150px; }
-        .warning { color:#ff5555; font-weight:bold; }
+        th, td { border:1px solid var(--muted); padding:0.5rem; text-align:left; }
+        th { background: var(--muted); }
+        input, select, button { padding:0.5rem; margin:0.25rem 0; background: var(--panel); color: var(--text); border:1px solid #555; }
+        button { cursor: pointer; }
+        button:hover { background: #333; }
+        .summary { display:flex; flex-wrap:wrap; gap:1rem; margin-bottom:1.25rem; }
+        .card { background: var(--panel); padding:1rem; border-radius:8px; flex:1; min-width:160px; }
+        .warning { color:#ffb86c; font-weight:bold; margin-bottom:0.5rem; }
+        /* Progress container and bar */
+        #progressContainer { width:100%; background:var(--muted); border-radius:10px; height:30px; overflow:hidden; }
+        #usageBar { width:0%; height:100%; text-align:center; color:white; line-height:30px; border-radius:10px; transition: width 1000ms ease, background-color 1000ms ease; }
+        .charts { display:flex; gap:1rem; flex-wrap:wrap; }
+        .chart-card { flex:1 1 320px; background:var(--panel); padding:1rem; border-radius:8px; }
     </style>
 </head>
 <body>
-<header>
-    <h1>Waste Tracker</h1>
-</header>
+<header><h1>Waste Tracker</h1></header>
 <main>
     {% if usage_percent >= 80 %}
-        <p class="warning">⚠️ On-site capacity is at {{ usage_percent|round(1) }}%! Consider reducing waste.</p>
+        <div class="warning">⚠️ On-site capacity at {{ usage_percent }}% of {{ max_mass_on_site }} kg — approaching limit.</div>
     {% endif %}
-    <form method="POST">
+
+    <form method="POST" style="max-width:900px; margin-bottom:1rem;">
         <label for="date">Date:</label>
         <input type="date" name="date" value="{{ default_date }}">
 
@@ -51,26 +62,36 @@
         <button type="submit">Add Entry</button>
     </form>
 
-    <div class="summary">
-        <div>
-            <h3>Total Quantity</h3>
-            <p>{{ total }} kg</p>
-            <progress value="{{ total }}" max="1000"></progress>
+    <div class="summary" style="align-items:center;">
+        <div class="card">
+            <h3>Total This Month</h3>
+            <p style="font-size:1.25rem; margin:0.25rem 0;">{{ total }} kg</p>
+            <div id="progressContainer" aria-hidden="true">
+                <div id="usageBar">0%</div>
+            </div>
+            <p style="margin:0.5rem 0 0 0; font-size:0.9rem; color:#bdbdbd;">Capacity: {{ max_mass_on_site }} kg</p>
         </div>
+
         {% for b, qty in business_totals.items() %}
-        <div>
-            <h3>{{ b }}</h3>
-            <p>{{ qty }} kg</p>
+        <div class="card">
+            <h4>{{ b }}</h4>
+            <p style="font-size:1.1rem; margin:0.25rem 0;">{{ qty }} kg</p>
         </div>
         {% endfor %}
     </div>
 
-    <h2>Waste by Stream</h2>
-    <canvas id="streamChart"></canvas>
-    <h2>Waste by Business</h2>
-    <canvas id="businessChart"></canvas>
+    <div class="charts">
+        <div class="chart-card">
+            <h3>Waste by Stream</h3>
+            <canvas id="streamChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>Waste by Business</h3>
+            <canvas id="businessChart"></canvas>
+        </div>
+    </div>
 
-    <h2>Monthly Summary</h2>
+    <h2 style="margin-top:1.25rem;">Monthly Summary</h2>
     <table>
         <thead>
             <tr>
@@ -89,34 +110,55 @@
                 <td>{{ row[3] }}</td>
             </tr>
             {% endfor %}
+            {% if not summary %}
+            <tr><td colspan="4" style="text-align:center; color:#bdbdbd;">No entries this month yet.</td></tr>
+            {% endif %}
         </tbody>
     </table>
+
     <a href="{{ url_for('export_csv') }}"><button>Export CSV</button></a>
 
     <script>
-        const ctxStream = document.getElementById('streamChart').getContext('2d');
-        const streamChart = new Chart(ctxStream, {
-            type: 'bar',
-            data: {
-                labels: {{ stream_totals.keys()|list|tojson }},
-                datasets: [{ label: 'Quantity (kg)', data: {{ stream_totals.values()|list|tojson }}, backgroundColor: '#bb86fc' }]
-            },
-            options: { responsive:true, plugins:{legend:{labels:{color:'#e0e0e0'}}}, scales:{x:{ticks:{color:'#e0e0e0'}, grid:{color:'#333'}}, y:{ticks:{color:'#e0e0e0'}, grid:{color:'#333'}}} }
-        });
+        // Animate and color the usage progress bar
+        (function() {
+            const usagePercent = Number({{ usage_percent }});
+            const max = 100; // percent scale
+            const bar = document.getElementById('usageBar');
 
-        const ctxBusiness = document.getElementById('businessChart').getContext('2d');
-        const businessChart = new Chart(ctxBusiness, {
-            type: 'pie',
-            data: {
-                labels: {{ business_totals.keys()|list|tojson }},
-                datasets: [{ label: 'Quantity (kg)', data: {{ business_totals.values()|list|tojson }}, backgroundColor: ['#bb86fc','#03dac6','#cf6679','#ffb86c'] }]
-            },
-            options: { responsive:true, plugins:{legend:{labels:{color:'#e0e0e0'}}} }
-        });
-    </script>
-</main>
-<footer>
-    &copy; {{ default_date[:4] }} Waste Tracker
-</footer>
-</body>
-</html>
+            // Compute color from blue (low) to red (high)
+            // We'll use HSL interpolation for a nicer gradient (blue ~ 210deg -> red ~ 0deg)
+            function percentToHue(p) {
+                // Map 0-100% to 210 -> 0
+                const start = 210;
+                const end = 0;
+                return Math.round(start + (end - start) * (p / 100));
+            }
+
+            const hue = percentToHue(Math.min(100, usagePercent));
+            const color = `hsl(${hue}, 75%, 55%)`;
+
+            // Use CSS transitions for slick animation
+            bar.style.transition = "width 1.2s ease, background-color 1.2s ease";
+            // trigger a reflow then set final values so transition runs
+            void bar.offsetWidth;
+            bar.style.width = Math.min(100, usagePercent) + '%';
+            bar.style.backgroundColor = color;
+            bar.textContent = Math.round(usagePercent) + '%';
+        })();
+
+        // Chart.js: stream (bar) and business (pie)
+        (function() {
+            // Data passed from server:
+            const streamLabels = {{ streams|tojson }};
+            const streamData = {{ ordered_stream_values|tojson }};
+            const businessLabels = {{ businesses|tojson }};
+            const businessData = {{ ordered_business_values|tojson }};
+
+            // Common chart options to fit dark theme
+            const commonOptions = {
+                responsive: true,
+                plugins: {
+                    legend: { labels: { color: '#e0e0e0' } }
+                },
+                scales: {
+                    x: { ticks: { color: '#e0e0e0' }, grid: { color: '
