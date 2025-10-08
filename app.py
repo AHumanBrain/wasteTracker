@@ -39,24 +39,11 @@ app = Flask(__name__)
 # -----------------------------
 # ROUTES
 # -----------------------------
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        # Example form data
-        date = request.form.get("date", datetime.today().strftime("%Y-%m-%d"))
-        business = request.form["business"]
-        stream = request.form["stream"]
-        quantity = float(request.form["quantity"])
-
-        conn = sqlite3.connect(DB)
-        c = conn.cursor()
-        c.execute(
-            "INSERT INTO waste (date, business, stream, quantity) VALUES (?, ?, ?, ?)",
-            (date, business, stream, quantity)
-        )
-        conn.commit()
-        conn.close()
-        return redirect(url_for("index"))
+        # ... POST handling ...
 
     # Display monthly summary
     month = datetime.today().strftime("%Y-%m")
@@ -78,7 +65,21 @@ def index():
         business_totals.setdefault(row[0], 0)
         business_totals[row[0]] += row[2]
 
-    return render_template("index.html", summary=summary, total=total, business_totals=business_totals)
+    # Step 1: compute totals by stream
+    stream_totals = {}
+    for row in summary:
+        stream_totals.setdefault(row[1], 0)
+        stream_totals[row[1]] += row[2]
+
+    # Step 2: pass everything to template
+    return render_template(
+        "index.html",
+        summary=summary,
+        total=total,
+        business_totals=business_totals,
+        stream_totals=stream_totals
+    )
+
 
 # -----------------------------
 # CSV EXPORT ROUTE
