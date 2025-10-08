@@ -5,150 +5,154 @@
     <title>Waste Tracker</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Dark theme styling */
+        /* Dark theme styles */
         body {
             background-color: #121212;
             color: #e0e0e0;
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
         }
-        h1, h2, h3 {
-            color: #ffffff;
+        header, footer {
+            background-color: #1e1e1e;
+            padding: 1rem;
+            text-align: center;
+        }
+        main {
+            padding: 1rem 2rem;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
+            margin-bottom: 1.5rem;
         }
         th, td {
             border: 1px solid #333;
-            padding: 8px;
+            padding: 0.5rem;
             text-align: left;
         }
         th {
-            background-color: #1f1f1f;
-        }
-        tr:nth-child(even) {
-            background-color: #1a1a1a;
+            background-color: #333;
         }
         input, select, button {
-            background-color: #1f1f1f;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            background-color: #1e1e1e;
             color: #e0e0e0;
-            border: 1px solid #333;
-            padding: 5px 10px;
-            margin: 5px 0;
+            border: 1px solid #555;
         }
         button {
             cursor: pointer;
         }
-        canvas {
-            background-color: #1f1f1f;
-            border-radius: 8px;
-            padding: 10px;
+        button:hover {
+            background-color: #333;
         }
-        .form-section {
-            margin-bottom: 30px;
+        .summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        .summary div {
+            background-color: #1e1e1e;
+            padding: 1rem;
+            border-radius: 8px;
+            flex: 1;
+            min-width: 150px;
         }
     </style>
 </head>
 <body>
-    <h1>Waste Tracker</h1>
-
-    <!-- Form to add waste data -->
-    <div class="form-section">
-        <form method="POST" action="{{ url_for('index') }}">
-            <label>Date:
-                <input type="date" name="date" value="{{ datetime.today().strftime('%Y-%m-%d') }}">
-            </label>
-            <label>Business:
-                <select name="business">
-                    {% for b in business_list %}
+    <header>
+        <h1>Waste Tracker</h1>
+    </header>
+    <main>
+        <form method="POST">
+            <label for="date">Date:</label>
+            <input type="date" name="date" value="{{ default_date }}">
+            
+            <label for="business">Business:</label>
+            <select name="business" required>
+                {% for b in business_list %}
                     <option value="{{ b }}">{{ b }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-            <label>Stream:
-                <select name="stream">
-                    {% for s in stream_list %}
+                {% endfor %}
+            </select>
+
+            <label for="stream">Stream:</label>
+            <select name="stream" required>
+                {% for s in stream_list %}
                     <option value="{{ s }}">{{ s }}</option>
-                    {% endfor %}
-                </select>
-            </label>
-            <label>Quantity:
-                <input type="number" step="0.01" name="quantity">
-            </label>
-            <button type="submit">Add Waste</button>
+                {% endfor %}
+            </select>
+
+            <label for="quantity">Quantity:</label>
+            <input type="number" step="0.01" name="quantity" required>
+
+            <button type="submit">Add Entry</button>
         </form>
-    </div>
 
-    <!-- Monthly summary table -->
-    <h2>Monthly Summary</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Business</th>
-                <th>Stream</th>
-                <th>Quantity</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in summary %}
-            <tr>
-                <td>{{ row[0] }}</td>
-                <td>{{ row[1] }}</td>
-                <td>{{ row[2] }}</td>
-            </tr>
+        <div class="summary">
+            <div>
+                <h3>Total Quantity</h3>
+                <p>{{ total }}</p>
+            </div>
+            {% for b, qty in business_totals.items() %}
+            <div>
+                <h3>{{ b }}</h3>
+                <p>{{ qty }}</p>
+            </div>
             {% endfor %}
-        </tbody>
-    </table>
+        </div>
 
-    <!-- Total summaries -->
-    <h2>Total Waste: {{ total }}</h2>
-    <h3>By Business:</h3>
-    <ul>
-        {% for b, qty in business_totals.items() %}
-        <li>{{ b }}: {{ qty }}</li>
-        {% endfor %}
-    </ul>
-
-    <!-- Chart of stream totals -->
-    <h2>Stream Totals</h2>
-    <canvas id="wasteChart" width="400" height="200"></canvas>
-    <script>
-        const ctx = document.getElementById('wasteChart').getContext('2d');
-        const wasteChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: {{ stream_totals.keys()|list|tojson }},
-                datasets: [{
-                    label: 'Waste Quantity',
-                    data: {{ stream_totals.values()|list|tojson }},
-                    backgroundColor: 'rgba(0, 200, 255, 0.8)',
-                    borderColor: 'rgba(0, 200, 255, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        labels: { color: '#e0e0e0' }
-                    }
+        <h2>Waste by Stream</h2>
+        <canvas id="streamChart"></canvas>
+        <script>
+            const ctx = document.getElementById('streamChart').getContext('2d');
+            const streamChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: {{ stream_totals.keys()|list|tojson }},
+                    datasets: [{
+                        label: 'Quantity',
+                        data: {{ stream_totals.values()|list|tojson }},
+                        backgroundColor: '#bb86fc'
+                    }]
                 },
-                scales: {
-                    x: {
-                        ticks: { color: '#e0e0e0' },
-                        grid: { color: '#333' }
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { labels: { color: '#e0e0e0' } }
                     },
-                    y: {
-                        ticks: { color: '#e0e0e0' },
-                        grid: { color: '#333' },
-                        beginAtZero: true
+                    scales: {
+                        x: { ticks: { color: '#e0e0e0' }, grid: { color: '#333' } },
+                        y: { ticks: { color: '#e0e0e0' }, grid: { color: '#333' } }
                     }
                 }
-            }
-        });
-    </script>
+            });
+        </script>
+
+        <h2>Monthly Summary</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Business</th>
+                    <th>Stream</th>
+                    <th>Quantity</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in summary %}
+                <tr>
+                    <td>{{ row[0] }}</td>
+                    <td>{{ row[1] }}</td>
+                    <td>{{ row[2] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </main>
+    <footer>
+        &copy; {{ default_date[:4] }} Waste Tracker
+    </footer>
 </body>
 </html>
